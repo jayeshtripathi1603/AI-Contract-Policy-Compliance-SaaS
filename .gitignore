@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.local
+.env.production
+.env.development
+
+frontend_full/dist/
+backend_full/uploads/
+backend_full/chroma_data/
+
+.DS_Store
+Thumbs.db
