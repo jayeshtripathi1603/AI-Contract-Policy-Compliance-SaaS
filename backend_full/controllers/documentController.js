@@ -1,69 +1,73 @@
-const pdf = require("pdf-parse");
-const mammoth = require("mammoth");
-const Document = require("../models/Document");
-const { uploadBufferToS3 } = require("../utils/fileUpload");
-const { addDocumentToVectorDB } = require("../utils/vectorDB");
 
-// Upload document
+
+
+const fs = require("fs");
+const path = require("path");
+const mammoth = require("mammoth");
+const pdfParse = require("pdf-parse-fixed");
+const Document = require("../models/Document");
+const { analyzeText } = require("../utils/aiService");
+
+
+
 exports.uploadDocument = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: "No file" });
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
+    // 1️⃣ Extract text from file
     let text = "";
-
-    // Extract text depending on file type
     if (req.file.mimetype === "application/pdf") {
-      const pdfData = await pdf(req.file.buffer);
-      text = pdfData.text;
-    } else if (req.file.mimetype.includes("wordprocessingml.document")) {
+  console.log("📘 Extracting from PDF (using pdf-parse-fixed)");
+  const pdfData = await pdfParse(req.file.buffer);
+  text = pdfData.text;
+}
+
+
+
+else if (req.file.mimetype.includes("wordprocessingml.document")) {
       const result = await mammoth.extractRawText({ buffer: req.file.buffer });
       text = result.value;
     } else {
       text = req.file.buffer.toString("utf8");
     }
 
-    // Upload file to S3 (optional)
-    const url = await uploadBufferToS3(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype
-    );
+    // 2️⃣ Save file locally
+    const uploadDir = path.join(__dirname, "..", "uploads");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
 
-    // Save document to DB
+    const filePath = path.join(uploadDir, req.file.originalname);
+    fs.writeFileSync(filePath, req.file.buffer);
+
+    // 3️⃣ Analyze text using Groq AI
+    const aiResult = await analyzeText(text);
+
+    // 4️⃣ Save document metadata to MongoDB
     const doc = await Document.create({
       user: req.user._id,
       name: req.file.originalname,
+      url: `/uploads/${req.file.originalname}`, // accessible path
       text,
-      url,
+      aiResult,
     });
 
-    // Split into chunks (for vector embedding)
-    const chunks = text.match(/.{1,1000}/g)?.map((t, i) => ({
-      chunkId: i,
-      text: t,
-    })) || [];
-
-    doc.chunks = chunks;
-    await doc.save();
-
-    // Add to vector DB
-    await addDocumentToVectorDB(doc._id.toString(), chunks);
-
-    res.status(201).json(doc);
-  } catch (err) {
-    console.error("Upload error:", err);
-    res.status(500).json({ message: err.message });
+    res.status(201).json({
+      message: "Document uploaded successfully",
+      document: doc,
+    });
+  } catch (error) {
+    console.error("Upload Error:", error);
+    res.status(500).json({ message: "Upload failed", error: error.message });
   }
-};
-
-// ✅ Missing export added here
+}
 exports.getDocuments = async (req, res) => {
   try {
     const docs = await Document.find({ user: req.user._id }).sort({ createdAt: -1 });
-    res.json(docs);
-  } catch (err) {
-    console.error("Get documents error:", err);
-    res.status(500).json({ message: err.message });
+    res.status(200).json(docs);
+  } catch (error) {
+    console.error("Get Documents Error:", error);
+    res.status(500).json({ message: "Failed to fetch documents", error: error.message });
   }
 };
-
+;

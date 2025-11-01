@@ -23,10 +23,26 @@ export default function UserDashboard() {
     setDocs(res.data);
   };
 
-  const analyze = async (id) => {
+ const analyze = async (id) => {
+  try {
     const res = await analyzeDocument(user.token, id, question);
-    setDocs(prev => prev.map(d => d._id === id ? { ...d, result: res.data.result } : d));
-  };
+    console.log("🧠 AI Response from backend:", res.data); // ✅ Debug log
+    const aiResult =
+      res?.data?.result ||
+      res?.data?.answer ||
+      res?.data?.response ||
+      "No AI result returned.";
+
+    setDocs((prev) =>
+      prev.map((d) => (d._id === id ? { ...d, result: aiResult } : d))
+    );
+  } catch (err) {
+    console.error("Analyze error:", err);
+    alert("AI analysis failed. Please try again.");
+  }
+};
+
+
 
   const upgrade = async () => {
     const priceId = prompt("Enter Stripe Price ID (e.g. price_xxx)");

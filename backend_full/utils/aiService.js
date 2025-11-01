@@ -1,19 +1,39 @@
-const OpenAI = require("openai");
-const { OPENAI_API_KEY } = require("../config");
-const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+const axios = require("axios");
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-exports.getEmbeddings = async text => {
-  const resp = await openai.embeddings.create({ model: "text-embedding-3-small", input: text });
-  return resp.data[0].embedding;
-};
+exports.analyzeText = async (text) => {
+  try {
+    console.log("🤖 Sending text to Groq AI...");
+    const response = await axios.post(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        model: "llama-3.1-8b-instant",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an AI assistant that summarizes and analyzes documents.",
+          },
+          { role: "user", content: text },
+        ],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-exports.analyzeWithContext = async (question, context) => {
-  const response = await openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [
-      { role: "system", content: "You are a legal AI assistant analyzing contracts." },
-      { role: "user", content: `Context: ${context.join("\n")} \nQuestion: ${question}` },
-    ],
-  });
-  return response.choices[0].message.content;
+    const aiText =
+      response.data?.choices?.[0]?.message?.content?.trim() ||
+      "No AI response received from Groq.";
+
+    console.log("✅ Groq AI response received");
+    console.log("🧠 AI Output:", aiText);
+    return aiText;
+  } catch (error) {
+    console.error("Groq AI Error:", error.response?.data || error.message);
+    throw new Error("Groq AI request failed");
+  }
 };

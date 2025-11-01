@@ -13,11 +13,15 @@ export const getDocuments = (token) => {
   return axios.get(`${API}/documents`, { headers: { Authorization: `Bearer ${token}` } });
 };
 
-export const analyzeDocument = (token, documentId, question) => {
-  return axios.post(`${API}/ai/analyze`, { documentId, question }, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export const analyzeDocument = async (token, documentId, question) => {
+  const response = await axios.post(
+    "http://localhost:5000/api/ai/analyze",
+    { documentId, question },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  return response.data;
 };
+
 
 export const createCheckoutSession = (token, priceId) => {
   return axios.post(`${API}/payment/create-checkout-session`, { priceId }, {

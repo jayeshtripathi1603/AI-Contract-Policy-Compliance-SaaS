@@ -7,6 +7,9 @@ const { MONGO_URI, PORT } = require("./config");
 const app = express();
 app.use(cors());
 app.use(express.json());
+const path = require("path");
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log("MongoDB connected"))
@@ -19,5 +22,7 @@ app.use("/api/documents", require("./routes/documentRoutes"));
 app.use("/api/ai", require("./routes/aiRoutes"));
 app.use("/api/payment", require("./routes/paymentRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
+app.use("/api/payments", require("./routes/paymentRoutes"));
+
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

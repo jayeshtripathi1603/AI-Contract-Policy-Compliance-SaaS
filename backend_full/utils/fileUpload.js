@@ -1,12 +1,24 @@
-const AWS = require("aws-sdk");
-const { AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_BUCKET_NAME } = require("../config");
+// backend_full/utils/fileUpload.js
+const fs = require("fs");
+const path = require("path");
 
-AWS.config.update({ accessKeyId: AWS_ACCESS_KEY, secretAccessKey: AWS_SECRET_KEY, region: "ap-south-1" });
-const s3 = new AWS.S3();
+exports.uploadBufferToS3 = async (buffer, originalname, mimetype) => {
+  try {
+    // Create uploads folder if it doesn't exist
+    const uploadDir = path.join(__dirname, "../uploads");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
 
-exports.uploadBufferToS3 = async (buffer, name, type) => {
-  const Key = `${Date.now()}_${name}`;
-  const params = { Bucket: AWS_BUCKET_NAME, Key, Body: buffer, ContentType: type };
-  const result = await s3.upload(params).promise();
-  return result.Location;
+    // Save file locally
+    const filename = `${Date.now()}_${originalname}`;
+    const filePath = path.join(uploadDir, filename);
+    fs.writeFileSync(filePath, buffer);
+
+    // Return relative file URL
+    return `/uploads/${filename}`;
+  } catch (err) {
+    console.error("Local upload failed:", err);
+    throw err;
+  }
 };
